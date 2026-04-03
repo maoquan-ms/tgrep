@@ -90,9 +90,9 @@ struct Cli {
     list_files: bool,
 
     // ── Filtering ────────────────────────────────────
-    /// Filter files by glob pattern.
-    #[arg(short = 'g', long = "glob", global = true)]
-    glob: Option<String>,
+    /// Filter files by glob pattern (can be specified multiple times).
+    #[arg(short = 'g', long = "glob", global = true, action = clap::ArgAction::Append)]
+    glob: Vec<String>,
 
     /// Filter files by type (e.g., rust, py, js). Use --type-list to see all.
     #[arg(short = 't', long = "type", global = true)]
@@ -114,6 +114,10 @@ struct Cli {
     /// Lines of context before and after each match.
     #[arg(short = 'C', long = "context", global = true)]
     context: Option<usize>,
+
+    /// Print the file name for each match (default behavior, ripgrep compatibility).
+    #[arg(short = 'H', long = "with-filename", global = true)]
+    with_filename: bool,
 
     // ── Output formatting ────────────────────────────
     /// Group matches by file with heading.

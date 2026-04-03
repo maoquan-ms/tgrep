@@ -33,7 +33,7 @@ pub struct SearchOptions {
     pub vimgrep: bool,
     pub stats: bool,
     pub no_index: bool,
-    pub glob: Option<String>,
+    pub glob: Vec<String>,
     pub file_type: Option<String>,
     pub invert_match: bool,
     pub only_matching: bool,
@@ -126,9 +126,7 @@ pub fn list_files(root: &Path, opts: &SearchOptions) -> Result<()> {
         {
             continue;
         }
-        if let Some(ref glob) = opts.glob
-            && !glob_matches(glob, &rel_path)
-        {
+        if !passes_glob_filters(&opts.glob, &rel_path) {
             continue;
         }
         writer.write_file(&rel_path)?;
@@ -178,7 +176,7 @@ fn search_via_server(info: &ServerInfo, opts: &SearchOptions, ci: bool) -> Resul
             "files_only": opts.files_only,
             "word_boundary": opts.word_boundary,
             "max_count": opts.max_count,
-            "glob": opts.glob,
+            "glob": opts.glob,  // sent as JSON array
             "file_type": opts.file_type,
             "invert_match": opts.invert_match,
             "only_matching": opts.only_matching,
@@ -588,18 +586,25 @@ fn build_combined_regex(
         .map_err(|e| anyhow::anyhow!("regex error: {e}"))
 }
 
-fn passes_filters(rel_path: &str, glob: &Option<String>, file_type: &Option<String>) -> bool {
+fn passes_filters(rel_path: &str, globs: &[String], file_type: &Option<String>) -> bool {
     if let Some(type_name) = file_type
         && !filetypes::matches_type(rel_path, type_name)
     {
         return false;
     }
-    if let Some(glob_pat) = glob
-        && !glob_matches(glob_pat, rel_path)
-    {
+    if !passes_glob_filters(globs, rel_path) {
         return false;
     }
     true
+}
+
+/// Check if a path passes all glob filters. If no globs are specified, all
+/// paths pass. When multiple globs are given, the path must match at least one.
+fn passes_glob_filters(globs: &[String], path: &str) -> bool {
+    if globs.is_empty() {
+        return true;
+    }
+    globs.iter().any(|g| glob_matches(g, path))
 }
 
 fn glob_matches(pattern: &str, path: &str) -> bool {
