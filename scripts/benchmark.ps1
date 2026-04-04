@@ -169,7 +169,7 @@ try {
     Write-Host "`n==> Benchmarking tgrep (client -> serve)..." -ForegroundColor Cyan
     $tgrepSw = [System.Diagnostics.Stopwatch]::StartNew()
     foreach ($q in $Queries) {
-        & $TgrepBin $q $BenchRepoDir --index-path $IndexPath > $null 2>&1
+        & $TgrepBin $q $BenchRepoDir --index-path $IndexPath *>$null
     }
     $tgrepSw.Stop()
     $tgrepMs = $tgrepSw.ElapsedMilliseconds
@@ -192,7 +192,7 @@ if ($rgCmd) {
     $ErrorActionPreference = 'Continue'
     $rgSw = [System.Diagnostics.Stopwatch]::StartNew()
     foreach ($q in $Queries) {
-        & rg -n $q $BenchRepoDir > $null 2>&1
+        & rg -n $q $BenchRepoDir *>$null
     }
     $rgSw.Stop()
     $ErrorActionPreference = $savedEAP
