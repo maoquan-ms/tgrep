@@ -163,7 +163,7 @@ if (-not $ready) {
 }
 
 # Per-query timeout in seconds
-$QueryTimeout = 120
+$QueryTimeout = 60
 
 # Helper: run a command with a timeout; returns $true if it completed in time.
 function Invoke-WithTimeout {

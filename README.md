@@ -19,6 +19,7 @@ tgrep "fn main" .        # instant — auto-connects to running server
 
 # Benchmark: 30-query search
 
+[Benchmark Run](https://github.com/microsoft/tgrep/actions/runs/23971379687)
 - **Repo**: [https://github.com/torvalds/linux](https://github.com/torvalds/linux)
 - **Files**: 93023
 - **Queries**: 30

@@ -71,6 +71,23 @@ now_ns() {
   fi
 }
 
+# Portable per-query timeout wrapper.
+# GNU timeout is available on Linux; on macOS we use perl as a fallback.
+run_with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$secs" "$@" || true
+  else
+    perl -e '
+      alarm shift @ARGV;
+      $SIG{ALRM} = sub { kill 9, $pid; exit 0 };
+      $pid = fork // die;
+      if ($pid == 0) { exec @ARGV; die "exec: $!" }
+      waitpid $pid, 0;
+    ' "$secs" "$@" || true
+  fi
+}
+
 # ── Build ──
 if [ "$SKIP_BUILD" = false ]; then
   echo "==> Building tgrep (release)..."
@@ -177,12 +194,12 @@ if [ "$READY" = false ]; then
 fi
 
 # ── Benchmark: tgrep (client → serve) ──
-QUERY_TIMEOUT=120  # seconds per query
+QUERY_TIMEOUT=60  # seconds per query
 echo ""
 echo "==> Benchmarking tgrep (client -> serve)..."
 TGREP_START=$(now_ns)
 for pattern in "${QUERIES[@]}"; do
-  timeout "$QUERY_TIMEOUT" "$TGREP_BIN" "$pattern" "$BENCH_REPO_DIR" --index-path "$INDEX_PATH" > /dev/null 2>&1 || true
+  run_with_timeout "$QUERY_TIMEOUT" "$TGREP_BIN" "$pattern" "$BENCH_REPO_DIR" --index-path "$INDEX_PATH" > /dev/null 2>&1
 done
 TGREP_END=$(now_ns)
 TGREP_MS=$(( (TGREP_END - TGREP_START) / 1000000 ))
@@ -200,31 +217,13 @@ if command -v rg >/dev/null 2>&1; then
   echo "==> Benchmarking ripgrep..."
   RG_START=$(now_ns)
   for pattern in "${QUERIES[@]}"; do
-    timeout "$QUERY_TIMEOUT" rg -n "$pattern" "$BENCH_REPO_DIR" > /dev/null 2>&1 || true
+    run_with_timeout "$QUERY_TIMEOUT" rg -n "$pattern" "$BENCH_REPO_DIR" > /dev/null 2>&1
   done
   RG_END=$(now_ns)
   RG_MS=$(( (RG_END - RG_START) / 1000000 ))
   echo "ripgrep: ${RG_MS}ms total"
 else
   echo "ripgrep (rg) not found in PATH, skipping"
-fi
-
-# ── Benchmark: grep ──
-GREP_MS=-1
-if command -v grep >/dev/null 2>&1; then
-  echo ""
-  echo "==> Benchmarking grep..."
-  GREP_START=$(now_ns)
-  for pattern in "${QUERIES[@]}"; do
-    timeout "$QUERY_TIMEOUT" grep -r -n -E --binary-files=without-match \
-      --exclude-dir=.git --exclude-dir=.tgrep \
-      "$pattern" "$BENCH_REPO_DIR" > /dev/null 2>&1 || true
-  done
-  GREP_END=$(now_ns)
-  GREP_MS=$(( (GREP_END - GREP_START) / 1000000 ))
-  echo "grep: ${GREP_MS}ms total"
-else
-  echo "grep not found in PATH, skipping"
 fi
 
 # ── Write results ──
@@ -253,10 +252,6 @@ cat > "$RESULTS_PATH" <<EOF
 | --- | ---: | ---: |
 EOF
 
-if [ "$GREP_MS" -ge 0 ]; then
-  GREP_AVG=$(awk "BEGIN { printf \"%.1f\", $GREP_MS / $QUERY_COUNT }")
-  echo "| grep | $GREP_MS | $GREP_AVG |" >> "$RESULTS_PATH"
-fi
 if [ "$RG_MS" -ge 0 ]; then
   RG_AVG=$(awk "BEGIN { printf \"%.1f\", $RG_MS / $QUERY_COUNT }")
   echo "| ripgrep | $RG_MS | $RG_AVG |" >> "$RESULTS_PATH"
