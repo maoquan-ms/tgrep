@@ -17,21 +17,36 @@ tgrep serve .            # start server (watches for file changes)
 tgrep "fn main" .        # instant — auto-connects to running server
 ```
 
-# Benchmark: 30-query search
+# Benchmark: 102-query search across 93K files (torvalds/linux)
 
-[Benchmark Run](https://github.com/microsoft/tgrep/actions/runs/23971379687)
-- **Repo**: [https://github.com/torvalds/linux](https://github.com/torvalds/linux)
-- **Files**: 93023
-- **Queries**: 30
-- **Date**: 2026-04-04T04:47:55Z
-- **Platform**: Windows AMD64
-- **Scope**: search only (index built before timing)
-- **tgrep mode**: client/server — `tgrep serve` runs in background, `tgrep` client connects via TCP
+[Benchmark Run (Windows)](https://github.com/microsoft/tgrep/actions/runs/23973786811)
+[Benchmark Run (Linux/MacOS)](https://github.com/microsoft/tgrep/actions/runs/23973782290)
+
+### Windows AMD64
 
 | Tool | Total (ms) | Avg per query (ms) |
 | --- | ---: | ---: |
-| ripgrep | 219316 | 7310.5 |
-| tgrep (client -> serve) | 149244 | 4974.8 |
+| ripgrep | 614,306 | 6,022.6 |
+| tgrep (client → serve) | 151,213 | 1,482.5 |
+
+### macOS Apple Silicon (Darwin arm64)
+
+| Tool | Total (ms) | Avg per query (ms) |
+| --- | ---: | ---: |
+| ripgrep | 131,061 | 1,284.9 |
+| tgrep (client → serve) | 119,654 | 1,173.1 |
+
+### Linux x86_64
+
+| Tool | Total (ms) | Avg per query (ms) |
+| --- | ---: | ---: |
+| ripgrep | 101,714 | 997.2 |
+| tgrep (client → serve) | 108,075 | 1,059.6 |
+
+- **Repo**: [torvalds/linux](https://github.com/torvalds/linux) (93,023 files)
+- **Queries**: 102 (mix of literals, multi-word, and regex)
+- **Scope**: search only (index built before timing)
+- **tgrep mode**: client/server — `tgrep serve` runs in background, `tgrep` client connects via TCP
 
 ## Architecture
 
