@@ -2,9 +2,6 @@
 #
 # Benchmark tgrep vs ripgrep on Linux/macOS.
 #
-# Uses `tgrep serve` for memory-efficient background indexing, then polls
-# `tgrep status` until the index is complete before running queries.
-#
 # Usage:
 #   ./scripts/benchmark.sh                                    # full run
 #   ./scripts/benchmark.sh --repo-path /src/myrepo --skip-build
@@ -149,12 +146,22 @@ fi
 # ── Count files ──
 FILE_COUNT=$(git -C "$BENCH_REPO_DIR" ls-files | wc -l | tr -d ' ')
 
-# ── Start tgrep serve (builds index in background) ──
-echo "==> Starting tgrep serve (index will build in background)..."
+# ── Build index ──
+echo "==> Building tgrep index..."
+INDEX_START=$(now_ns)
+"$TGREP_BIN" index "$BENCH_REPO_DIR" --index-path "$INDEX_PATH"
+INDEX_END=$(now_ns)
+INDEX_MS=$(( (INDEX_END - INDEX_START) / 1000000 ))
+echo "Index built in ${INDEX_MS}ms"
+
+QUERY_COUNT=${#QUERIES[@]}
+echo "==> Running $QUERY_COUNT queries against $FILE_COUNT files"
+
+# ── Start tgrep serve ──
+echo "==> Starting tgrep serve..."
 
 LOCKFILE="$INDEX_PATH/serve.json"
 rm -f "$LOCKFILE"
-mkdir -p "$INDEX_PATH"
 
 "$TGREP_BIN" serve "$BENCH_REPO_DIR" --index-path "$INDEX_PATH" --no-watch > /dev/null 2>&1 &
 SERVE_PID=$!
@@ -182,28 +189,6 @@ if [ "$READY" = false ]; then
   echo "ERROR: tgrep serve failed to start within 60s" >&2
   exit 1
 fi
-
-# ── Wait for background indexing to complete ──
-echo "==> Waiting for index build to complete..."
-INDEX_START=$(now_ns)
-while true; do
-  STATUS_OUTPUT=$("$TGREP_BIN" status "$BENCH_REPO_DIR" --index-path "$INDEX_PATH" 2>/dev/null || true)
-  if echo "$STATUS_OUTPUT" | grep -q "Indexing:   complete"; then
-    break
-  fi
-  # Print progress
-  PROGRESS=$(echo "$STATUS_OUTPUT" | grep "Indexing:" | head -1 || true)
-  if [ -n "$PROGRESS" ]; then
-    echo "  $PROGRESS"
-  fi
-  sleep 10
-done
-INDEX_END=$(now_ns)
-INDEX_MS=$(( (INDEX_END - INDEX_START) / 1000000 ))
-echo "Index built in ${INDEX_MS}ms"
-
-QUERY_COUNT=${#QUERIES[@]}
-echo "==> Running $QUERY_COUNT queries against $FILE_COUNT files"
 
 # ── Benchmark: tgrep (client → serve) ──
 echo ""

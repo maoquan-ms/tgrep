@@ -3,8 +3,6 @@
     Benchmark tgrep vs ripgrep on Windows.
 .DESCRIPTION
     Runs a search benchmark comparing tgrep (client/server) against ripgrep.
-    Uses `tgrep serve` for memory-efficient background indexing, then polls
-    `tgrep status` until the index is complete before running queries.
     Queries and the default repo URL are loaded from a JSON file.
 .PARAMETER QueriesFile
     Path to a JSON file containing "repo_url" and "queries" array.
@@ -116,12 +114,23 @@ if (-not (Test-Path $BenchRepoDir)) {
 # ── Count files ──
 $FileCount = (git -C $BenchRepoDir ls-files | Measure-Object -Line).Lines
 
-# ── Start tgrep serve (builds index in background) ──
-Write-Host '==> Starting tgrep serve (index will build in background)...' -ForegroundColor Cyan
+# ── Build index ──
+Write-Host '==> Building tgrep index...' -ForegroundColor Cyan
+$indexSw = [System.Diagnostics.Stopwatch]::StartNew()
+& $TgrepBin index $BenchRepoDir --index-path $IndexPath
+if ($LASTEXITCODE -ne 0) { throw 'tgrep index failed' }
+$indexSw.Stop()
+$indexMs = $indexSw.ElapsedMilliseconds
+Write-Host "Index built in ${indexMs}ms" -ForegroundColor Green
+
+$QueryCount = $Queries.Count
+Write-Host "==> Running $QueryCount queries against $FileCount files" -ForegroundColor Cyan
+
+# ── Start tgrep serve ──
+Write-Host '==> Starting tgrep serve...' -ForegroundColor Cyan
 
 $LockFile = Join-Path $IndexPath 'serve.json'
 if (Test-Path $LockFile) { Remove-Item $LockFile -Force }
-New-Item -ItemType Directory -Path $IndexPath -Force | Out-Null
 
 $serveOut = Join-Path $BenchDir 'serve-stdout.log'
 $serveErr = Join-Path $BenchDir 'serve-stderr.log'
@@ -148,27 +157,6 @@ if (-not $ready) {
     if (-not $serveProc.HasExited) { $serveProc.Kill() }
     throw 'tgrep serve failed to start'
 }
-
-# ── Wait for background indexing to complete ──
-Write-Host '==> Waiting for index build to complete...' -ForegroundColor Cyan
-$indexSw = [System.Diagnostics.Stopwatch]::StartNew()
-while ($true) {
-    $statusOutput = & $TgrepBin status $BenchRepoDir --index-path $IndexPath 2>$null
-    if ($statusOutput -match 'Indexing:\s+complete') {
-        break
-    }
-    $progress = $statusOutput | Select-String 'Indexing:' | Select-Object -First 1
-    if ($progress) {
-        Write-Host "  $($progress.Line)"
-    }
-    Start-Sleep -Seconds 10
-}
-$indexSw.Stop()
-$indexMs = $indexSw.ElapsedMilliseconds
-Write-Host "Index built in ${indexMs}ms" -ForegroundColor Green
-
-$QueryCount = $Queries.Count
-Write-Host "==> Running $QueryCount queries against $FileCount files" -ForegroundColor Cyan
 
 # ── Benchmark: tgrep (client → serve) ──
 $savedEAP = $ErrorActionPreference
