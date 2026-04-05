@@ -71,8 +71,11 @@ if [ -z "$REPO_URL" ]; then
   exit 1
 fi
 
-# Read queries into a bash array
-mapfile -t QUERIES < <(python3 -c "
+# Read queries into a shell array (compatible with bash 3 / macOS)
+QUERIES=()
+while IFS= read -r line; do
+  QUERIES+=("$line")
+done < <(python3 -c "
 import json, sys
 data = json.load(open(sys.argv[1]))
 for q in data['queries']:
