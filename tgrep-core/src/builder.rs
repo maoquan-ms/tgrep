@@ -102,9 +102,16 @@ pub fn build_index(root: &Path, index_dir: Option<&Path>, include_hidden: bool) 
 
     write_index_v2(&index_dir, &root, &file_id_map, &inverted)?;
 
-    // Write per-file stamps for stale detection on next startup
-    let paths: Vec<String> = file_id_map.iter().map(|(_, p)| p.clone()).collect();
-    let stamps = meta::collect_filestamps(&root, &paths);
+    // Write per-file stamps for ALL walked files (including those later
+    // rejected as binary-by-content) so the stale check on next startup
+    // won't re-process unchanged files that aren't in the index.
+    let all_walked: Vec<String> = walk
+        .files
+        .iter()
+        .filter_map(|p| p.strip_prefix(&root).ok())
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .collect();
+    let stamps = meta::collect_filestamps(&root, &all_walked);
     meta::write_filestamps(&stamps, &index_dir)?;
 
     eprintln!("Index built successfully at {}", index_dir.display());
@@ -187,12 +194,6 @@ pub fn write_index_from_snapshot(
     );
     meta_obj.complete = complete;
     meta_obj.save(index_dir)?;
-
-    // Write per-file stamps for stale detection on next startup
-    if complete {
-        let stamps = meta::collect_filestamps(&root, paths);
-        meta::write_filestamps(&stamps, index_dir)?;
-    }
 
     Ok(())
 }

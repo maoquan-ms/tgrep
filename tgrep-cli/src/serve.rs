@@ -914,6 +914,24 @@ fn background_refresh_stale(state: &Arc<ServerState>, root: &Path, index_dir: &P
         update_start.elapsed().as_secs_f64() * 1000.0,
         start.elapsed().as_secs_f64() * 1000.0
     );
+
+    // Re-stamp ALL walked files (including content-binary ones) so the
+    // next startup won't treat unchanged non-indexed files as "new".
+    let new_stamps: std::collections::HashMap<String, FileStamp> = current_meta
+        .iter()
+        .map(|fm| {
+            (
+                fm.relative_path.clone(),
+                FileStamp {
+                    mtime: fm.mtime,
+                    size: fm.size,
+                },
+            )
+        })
+        .collect();
+    if let Err(e) = meta::write_filestamps(&new_stamps, index_dir) {
+        eprintln!("[trace] stale check: failed to write filestamps: {e}");
+    }
 }
 
 /// Walk the repo and populate the LiveIndex in batches in a background thread.
@@ -1066,6 +1084,25 @@ fn background_index_build(state: &Arc<ServerState>, root: &Path, index_dir: &Pat
     // Final flush to disk
     eprintln!("[trace] persisting final index to disk...");
     flush_index_to_disk(state, root, index_dir);
+
+    // Write per-file stamps for ALL walked files (including content-binary
+    // ones) so the stale check on next startup is accurate.
+    let walk_meta = tgrep_core::walker::walk_file_metadata(root);
+    let stamps: std::collections::HashMap<String, tgrep_core::meta::FileStamp> = walk_meta
+        .into_iter()
+        .map(|fm| {
+            (
+                fm.relative_path,
+                tgrep_core::meta::FileStamp {
+                    mtime: fm.mtime,
+                    size: fm.size,
+                },
+            )
+        })
+        .collect();
+    if let Err(e) = tgrep_core::meta::write_filestamps(&stamps, index_dir) {
+        eprintln!("[trace] warning: failed to write filestamps: {e}");
+    }
 
     // Clear indexing flag AFTER final flush so auto-save doesn't race
     state
