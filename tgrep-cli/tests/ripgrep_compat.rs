@@ -569,7 +569,11 @@ fn count_files_stderr_has_details() {
 fn count_files_skips_binary() {
     let dir = setup_fixture();
     // Add a binary file (by extension)
-    fs::write(dir.path().join("testdata").join("image.png"), b"\x89PNG\r\n").unwrap();
+    fs::write(
+        dir.path().join("testdata").join("image.png"),
+        b"\x89PNG\r\n",
+    )
+    .unwrap();
     let output = tgrep()
         .args(["count-files", &fixture_path(&dir)])
         .output()
