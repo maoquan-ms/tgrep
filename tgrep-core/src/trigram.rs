@@ -73,17 +73,24 @@ pub fn extract_with_masks(data: &[u8]) -> Vec<(TrigramHash, TrigramMasks)> {
     // Use HashMap instead of 16M arrays — much less allocation pressure
     // since typical files have far fewer than 16M unique trigrams.
     let mut masks: HashMap<TrigramHash, TrigramMasks> = HashMap::new();
+    let mut order: Vec<TrigramHash> = Vec::new();
 
     for (i, window) in data.windows(3).enumerate() {
         let h = hash(window[0], window[1], window[2]);
-        let entry = masks.entry(h).or_default();
+        let entry = masks.entry(h).or_insert_with(|| {
+            order.push(h);
+            TrigramMasks::default()
+        });
         entry.loc_mask |= loc_bit(i);
         if i + 3 < data.len() {
             entry.next_mask |= next_bit(data[i + 3]);
         }
     }
 
-    masks.into_iter().collect()
+    order
+        .into_iter()
+        .map(|h| (h, masks.remove(&h).unwrap()))
+        .collect()
 }
 
 /// Check whether consecutive trigrams from a literal can be adjacent based on masks.
