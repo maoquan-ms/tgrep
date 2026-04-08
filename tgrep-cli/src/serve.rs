@@ -693,6 +693,13 @@ fn start_file_watcher(state: Arc<ServerState>, root: &Path) -> Option<Recommende
 }
 
 fn handle_fs_event(state: &ServerState, root: &Path, event: &Event) {
+    // Skip file events while the initial background index build is in progress —
+    // the indexer will pick up all files itself, and the watcher would just
+    // cause duplicate reindex work.
+    if state.indexing.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+
     let dominated_kinds = matches!(
         event.kind,
         EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
