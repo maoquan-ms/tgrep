@@ -77,12 +77,11 @@ pub fn walk_dir(root: &Path, opts: &WalkOptions) -> WalkResult {
 
             // Skip excluded directories and their subtrees
             if entry.file_type().is_some_and(|ft| ft.is_dir()) {
-                if !exclude.is_empty() {
-                    if let Some(name) = entry.file_name().to_str() {
-                        if exclude.iter().any(|d| d == name) {
-                            return ignore::WalkState::Skip;
-                        }
-                    }
+                if let Some(name) = entry.file_name().to_str()
+                    && !exclude.is_empty()
+                    && exclude.iter().any(|d| d == name)
+                {
+                    return ignore::WalkState::Skip;
                 }
                 return ignore::WalkState::Continue;
             }
@@ -150,12 +149,11 @@ pub fn walk_file_metadata(root: &Path, exclude_dirs: &[String]) -> Vec<FileMeta>
             };
 
             if entry.file_type().is_some_and(|ft| ft.is_dir()) {
-                if !exclude.is_empty() {
-                    if let Some(name) = entry.file_name().to_str() {
-                        if exclude.iter().any(|d| d == name) {
-                            return ignore::WalkState::Skip;
-                        }
-                    }
+                if let Some(name) = entry.file_name().to_str()
+                    && !exclude.is_empty()
+                    && exclude.iter().any(|d| d == name)
+                {
+                    return ignore::WalkState::Skip;
                 }
                 return ignore::WalkState::Continue;
             }
@@ -248,7 +246,15 @@ mod tests {
         let root = dir.path().join("testdata");
         let result = walk_dir(&root, &WalkOptions::default());
         let names = sorted_filenames(&result, &root);
-        assert_eq!(names, vec!["README.md", "src/main.rs", "third_party/lib.rs", "vendor/dep.rs"]);
+        assert_eq!(
+            names,
+            vec![
+                "README.md",
+                "src/main.rs",
+                "third_party/lib.rs",
+                "vendor/dep.rs"
+            ]
+        );
     }
 
     #[test]
@@ -329,7 +335,11 @@ mod tests {
         let excluded = walk_file_metadata(&root, &["vendor".to_string()]);
 
         assert!(all.iter().any(|f| f.relative_path.starts_with("vendor/")));
-        assert!(!excluded.iter().any(|f| f.relative_path.starts_with("vendor/")));
+        assert!(
+            !excluded
+                .iter()
+                .any(|f| f.relative_path.starts_with("vendor/"))
+        );
         assert!(excluded.iter().any(|f| f.relative_path == "src/main.rs"));
     }
 }

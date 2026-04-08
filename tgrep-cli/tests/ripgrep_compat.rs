@@ -634,9 +634,7 @@ fn index_exclude_single_dir() {
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("src/main.rs") || stdout.contains("src\\main.rs"));
-    assert!(
-        stdout.contains("third_party/lib.rs") || stdout.contains("third_party\\lib.rs")
-    );
+    assert!(stdout.contains("third_party/lib.rs") || stdout.contains("third_party\\lib.rs"));
     assert!(!stdout.contains("vendor"));
 }
 
