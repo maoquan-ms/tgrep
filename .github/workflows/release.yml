@@ -45,7 +45,7 @@ jobs:
 
       - name: Install cross (aarch64-linux-musl)
         if: matrix.use_cross
-        run: cargo install cross --locked
+        run: cargo install cross --locked --version 0.2.5
 
       - name: Build release binary
         if: ${{ !matrix.use_cross }}
