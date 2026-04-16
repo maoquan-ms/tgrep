@@ -757,19 +757,34 @@ fn auto_save_loop(state: Arc<ServerState>, index_dir: &Path) {
                 if let Err(e) = move_staged_files(&staging_dir, index_dir) {
                     eprintln!("[trace] auto-save move failed: {e}");
                     let _ = std::fs::remove_dir_all(&staging_dir);
+                    // Try to reopen old reader; LiveIndex is still intact.
+                    if let Err(e2) = index.reopen_reader(index_dir) {
+                        eprintln!("[trace] warning: reader reopen also failed: {e2}");
+                    }
                     continue;
                 }
-                match HybridIndex::open(index_dir, &state.root) {
-                    Ok(new_index) => {
-                        *index = new_index;
-                        last_save = Instant::now();
-                        eprintln!(
-                            "[trace] auto-save complete in {:.1}s",
-                            save_start.elapsed().as_secs_f64()
-                        );
+                // Reopen reader, keep LiveIndex as fallback, prune persisted entries.
+                let num_files = paths.len();
+                match index.reopen_reader(index_dir) {
+                    Ok(()) => {
+                        let reader_files = index.reader_file_count();
+                        if reader_files >= num_files {
+                            index.prune_persisted_entries();
+                            index.live.reset_dirty_count();
+                            last_save = Instant::now();
+                            eprintln!(
+                                "[trace] auto-save complete in {:.1}s ({} files on disk)",
+                                save_start.elapsed().as_secs_f64(),
+                                reader_files,
+                            );
+                        } else {
+                            eprintln!(
+                                "[trace] auto-save reopen incomplete: expected {num_files} files, found {reader_files}; live overlay retained"
+                            );
+                        }
                     }
                     Err(e) => {
-                        eprintln!("[trace] auto-save reopen failed: {e}");
+                        eprintln!("[trace] auto-save reopen failed: {e}, live overlay retained");
                     }
                 }
             }
@@ -1244,16 +1259,35 @@ fn flush_index_to_disk(state: &ServerState, _root: &Path, index_dir: &Path) {
         if let Err(e) = move_staged_files(&staging_dir, index_dir) {
             eprintln!("[trace] warning: flush move failed: {e}");
             let _ = std::fs::remove_dir_all(&staging_dir);
+            // Try to reopen the (old) reader so lookups don't hit None mmaps.
+            // LiveIndex is still intact as a fallback.
+            if let Err(e2) = index.reopen_reader(index_dir) {
+                eprintln!("[trace] warning: reader reopen also failed: {e2}");
+            }
             return;
         }
 
-        // Reopen the reader from the newly written files
-        match HybridIndex::open(index_dir, &state.root) {
-            Ok(new_index) => {
-                *index = new_index;
+        // Reopen just the reader — keep LiveIndex as a safety net.
+        // If the reader is valid, prune overlay entries that are now on disk.
+        match index.reopen_reader(index_dir) {
+            Ok(()) => {
+                let reader_files = index.reader_file_count();
+                if reader_files >= num_files {
+                    index.prune_persisted_entries();
+                    index.live.reset_dirty_count();
+                    eprintln!(
+                        "[trace] flush: reader reopened ({reader_files} files), overlay pruned"
+                    );
+                } else {
+                    eprintln!(
+                        "[trace] warning: reader has {reader_files} files (expected {num_files}), keeping live overlay as fallback"
+                    );
+                }
             }
             Err(e) => {
-                eprintln!("[trace] warning: failed to reopen index after flush: {e}");
+                eprintln!(
+                    "[trace] warning: failed to reopen reader after flush: {e}, live overlay retained"
+                );
             }
         }
     }
@@ -1266,14 +1300,18 @@ fn flush_index_to_disk(state: &ServerState, _root: &Path, index_dir: &Path) {
 }
 
 /// Move index files from staging to the target directory.
+/// Files are copied in a fixed order, with `meta.json` copied last.
+/// This ordering is only a convention for publication layout; it does not
+/// provide atomic publish semantics or reader-side validation by itself.
 fn move_staged_files(staging: &Path, target: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(target)?;
+    // Data files first, meta last.
     for name in &[
         "index.bin",
         "lookup.bin",
         "files.bin",
-        "meta.json",
         "filestamps.json",
+        "meta.json",
     ] {
         let src = staging.join(name);
         let dst = target.join(name);
