@@ -1277,7 +1277,9 @@ fn flush_index_to_disk(state: &ServerState, _root: &Path, index_dir: &Path) {
                 }
             }
             Err(e) => {
-                eprintln!("[trace] warning: failed to reopen reader after flush: {e}, live overlay retained");
+                eprintln!(
+                    "[trace] warning: failed to reopen reader after flush: {e}, live overlay retained"
+                );
             }
         }
     }
