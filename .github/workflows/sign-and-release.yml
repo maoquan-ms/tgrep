@@ -129,7 +129,23 @@ extends:
                 displayName: 'Verify Rust version'
 
               # ---------------------------------------------------------------
-              # Step 4: Authenticate with ADO DeepPrompt Cargo feed.
+              # Step 4: Copy ADO-specific .cargo/config.toml into place.
+              # .github/workflows/ado-cargo-config.toml redirects crates.io to the
+              # ADO DeepPrompt feed and includes BinSkim rustflags. It is separate
+              # from the repo-root .cargo/config.toml (which intentionally does NOT
+              # redirect crates.io, to avoid breaking external contributor builds).
+              # ---------------------------------------------------------------
+              - powershell: |
+                  $src = "$(Build.SourcesDirectory)\.github\workflows\ado-cargo-config.toml"
+                  $dstDir = "$(Build.SourcesDirectory)\.cargo"
+                  New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
+                  Copy-Item -Path $src -Destination "$dstDir\config.toml" -Force
+                  Write-Host "Copied: $src -> $dstDir\config.toml"
+                  Get-Content "$dstDir\config.toml"
+                displayName: 'Copy ADO cargo config (crates.io redirect + BinSkim flags)'
+
+              # ---------------------------------------------------------------
+              # Step 5: Authenticate with ADO DeepPrompt Cargo feed.
               # CargoAuthenticate@0 reads .cargo/config.toml and injects credentials
               # for all ADO registries listed there. This is the official Microsoft
               # way to authenticate cargo to ADO Artifact feeds.
@@ -141,10 +157,7 @@ extends:
                   configFile: '.cargo/config.toml'
 
               # ---------------------------------------------------------------
-              # Step 5: Build Windows x64 release binary
-              # .cargo/config.toml (checked in at repo root) provides:
-              #   - crates.io redirect to ADO DeepPrompt Cargo feed
-              #   - BinSkim-required rustflags (OneBranch BA2007)
+              # Step 6: Build Windows x64 release binary
               # ---------------------------------------------------------------
               - script: |
                   cargo build --release --locked -p tgrep-cli --bin tgrep --target x86_64-pc-windows-msvc
@@ -248,6 +261,15 @@ extends:
                   rustc --version
                   cargo --version
                 displayName: 'Verify Rust version'
+
+              - powershell: |
+                  $src = "$(Build.SourcesDirectory)\.github\workflows\ado-cargo-config.toml"
+                  $dstDir = "$(Build.SourcesDirectory)\.cargo"
+                  New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
+                  Copy-Item -Path $src -Destination "$dstDir\config.toml" -Force
+                  Write-Host "Copied: $src -> $dstDir\config.toml"
+                  Get-Content "$dstDir\config.toml"
+                displayName: 'Copy ADO cargo config (crates.io redirect + BinSkim flags)'
 
               - task: CargoAuthenticate@0
                 displayName: 'Authenticate with ADO DeepPrompt Cargo feed'
