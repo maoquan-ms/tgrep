@@ -147,7 +147,11 @@ extends:
               # ---------------------------------------------------------------
               # Step 5: Authenticate with ADO DeepPrompt Cargo feed.
               # CargoAuthenticate@0 reads .cargo/config.toml and injects credentials
-              # for all ADO registries listed there. This is the official Microsoft
+              # for all ADO registries listed there (ado-cargo-config.toml defines
+              #   - the ADO registry definition used by CargoAuthenticate@0
+              #   - BinSkim-required rustflags (OneBranch BA2007)
+              #   - crates.io remains the default registry; no source replacement is configured
+              # in the repo-root .cargo/config.toml). This is the official Microsoft
               # way to authenticate cargo to ADO Artifact feeds.
               # Reference: rust.sdk.sample, rust.msrustup pipelines
               # ---------------------------------------------------------------
