@@ -144,17 +144,14 @@ extends:
                     'replace-with = "devdiv-deepprompt"',
                     '',
                     '[source.devdiv-deepprompt]',
-                    'registry = "sparse+https://pkgs.dev.azure.com/devdiv/_packaging/DeepPrompt/Cargo/index/"',
-                    '',
-                    '[target.x86_64-pc-windows-msvc]',
-                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE /CETCOMPAT"]'
+                    'registry = "sparse+https://pkgs.dev.azure.com/devdiv/_packaging/DeepPrompt/Cargo/index/"'
                   )
                   $configPath = "$dstDir\config.toml"
                   $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
                   $content = [string]::Join([Environment]::NewLine, $lines)
                   [System.IO.File]::WriteAllText($configPath, $content, $utf8NoBom)
                   Write-Host "Written: $configPath"
-                displayName: 'Write ADO cargo config (crates.io redirect + BinSkim flags)'
+                displayName: 'Write ADO cargo config (crates.io redirect)'
 
               # ---------------------------------------------------------------
               # Step 5: Authenticate with ADO DeepPrompt Cargo feed.
@@ -171,6 +168,11 @@ extends:
                   cargo build --release --locked -p tgrep-cli --bin tgrep --target x86_64-pc-windows-msvc
                 displayName: 'Build tgrep Windows x64'
                 workingDirectory: $(Build.SourcesDirectory)\s
+                env:
+                  # BinSkim-required flags passed via env var (not .cargo/config.toml) so that
+                  # the x64 and arm64 jobs cannot overwrite each other's config on the shared workspace.
+                  # /CETCOMPAT is x86-64 only; arm64 job uses its own RUSTFLAGS without it.
+                  RUSTFLAGS: '-Ccontrol-flow-guard -Ctarget-feature=+crt-static -Clink-args=/DYNAMICBASE /CETCOMPAT'
 
               # ---------------------------------------------------------------
               # Step 7: Verify binary exists
@@ -202,9 +204,11 @@ extends:
                   $tag = "$(TGREP_TAG)"
                   $zipName = "tgrep-$tag-x86_64-pc-windows-msvc.zip"
                   $exePath = "$(Build.SourcesDirectory)/target/x86_64-pc-windows-msvc/release/tgrep.exe"
-                  $readmePath = "$(Build.SourcesDirectory)/s/README.md"
                   $outPath = "$(Build.ArtifactStagingDirectory)/$zipName"
-                  Compress-Archive -Path $exePath, $readmePath -DestinationPath $outPath
+                  # README.md is intentionally omitted: OneBranch uses --filter=blob:none
+                  # (partial clone) so the blob is not on disk, and the README is already
+                  # visible on the GitHub release page.
+                  Compress-Archive -Path $exePath -DestinationPath $outPath
                   Write-Host "Packaged: $zipName"
                   dir $outPath
                 displayName: 'Package signed tgrep.exe into zip'
@@ -276,17 +280,14 @@ extends:
                     'replace-with = "devdiv-deepprompt"',
                     '',
                     '[source.devdiv-deepprompt]',
-                    'registry = "sparse+https://pkgs.dev.azure.com/devdiv/_packaging/DeepPrompt/Cargo/index/"',
-                    '',
-                    '[target.aarch64-pc-windows-msvc]',
-                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE"]'
+                    'registry = "sparse+https://pkgs.dev.azure.com/devdiv/_packaging/DeepPrompt/Cargo/index/"'
                   )
                   $configPath = "$dstDir\config.toml"
                   $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
                   $content = [string]::Join([Environment]::NewLine, $lines)
                   [System.IO.File]::WriteAllText($configPath, $content, $utf8NoBom)
                   Write-Host "Written: $configPath"
-                displayName: 'Write ADO cargo config (crates.io redirect + BinSkim flags)'
+                displayName: 'Write ADO cargo config (crates.io redirect)'
 
               - task: CargoAuthenticate@0
                 displayName: 'Authenticate with ADO DeepPrompt Cargo feed'
@@ -297,6 +298,11 @@ extends:
                   cargo build --release --locked -p tgrep-cli --bin tgrep --target aarch64-pc-windows-msvc
                 displayName: 'Build tgrep Windows arm64 (cross-compile)'
                 workingDirectory: $(Build.SourcesDirectory)\s
+                env:
+                  # BinSkim-required flags passed via env var (not .cargo/config.toml) so that
+                  # the x64 and arm64 jobs cannot overwrite each other's config on the shared workspace.
+                  # arm64 does NOT use /CETCOMPAT (x86-64 only); omitting it avoids LNK1246.
+                  RUSTFLAGS: '-Ccontrol-flow-guard -Ctarget-feature=+crt-static -Clink-args=/DYNAMICBASE'
 
               - script: |
                   dir target\aarch64-pc-windows-msvc\release\tgrep.exe
@@ -315,9 +321,11 @@ extends:
                   $tag = "$(TGREP_TAG)"
                   $zipName = "tgrep-$tag-aarch64-pc-windows-msvc.zip"
                   $exePath = "$(Build.SourcesDirectory)/target/aarch64-pc-windows-msvc/release/tgrep.exe"
-                  $readmePath = "$(Build.SourcesDirectory)/s/README.md"
                   $outPath = "$(Build.ArtifactStagingDirectory)/$zipName"
-                  Compress-Archive -Path $exePath, $readmePath -DestinationPath $outPath
+                  # README.md is intentionally omitted: OneBranch uses --filter=blob:none
+                  # (partial clone) so the blob is not on disk, and the README is already
+                  # visible on the GitHub release page.
+                  Compress-Archive -Path $exePath -DestinationPath $outPath
                   Write-Host "Packaged: $zipName"
                   dir $outPath
                 displayName: 'Package signed tgrep.exe (arm64) into zip'
