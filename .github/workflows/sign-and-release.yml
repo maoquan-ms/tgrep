@@ -147,10 +147,7 @@ extends:
                     'registry = "sparse+https://pkgs.dev.azure.com/devdiv/_packaging/DeepPrompt/Cargo/index/"',
                     '',
                     '[target.x86_64-pc-windows-msvc]',
-                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE /CETCOMPAT"]',
-                    '',
-                    '[target.aarch64-pc-windows-msvc]',
-                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE"]'
+                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE /CETCOMPAT"]'
                   )
                   $configPath = "$dstDir\config.toml"
                   $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
@@ -181,7 +178,7 @@ extends:
               - script: |
                   dir target\x86_64-pc-windows-msvc\release\tgrep.exe
                 displayName: 'Verify tgrep.exe exists'
-                workingDirectory: $(Build.SourcesDirectory)\s
+                workingDirectory: $(Build.SourcesDirectory)
 
               # ---------------------------------------------------------------
               # Step 8: Sign tgrep.exe using OneBranch signing
@@ -195,7 +192,7 @@ extends:
                   command: "sign"
                   signing_profile: "external_distribution"
                   files_to_sign: "tgrep.exe"
-                  search_root: "$(Build.SourcesDirectory)/s/target/x86_64-pc-windows-msvc/release"
+                  search_root: "$(Build.SourcesDirectory)/target/x86_64-pc-windows-msvc/release"
 
               # ---------------------------------------------------------------
               # Step 9: Package signed binary
@@ -204,7 +201,7 @@ extends:
               - powershell: |
                   $tag = "$(TGREP_TAG)"
                   $zipName = "tgrep-$tag-x86_64-pc-windows-msvc.zip"
-                  $exePath = "$(Build.SourcesDirectory)/s/target/x86_64-pc-windows-msvc/release/tgrep.exe"
+                  $exePath = "$(Build.SourcesDirectory)/target/x86_64-pc-windows-msvc/release/tgrep.exe"
                   $readmePath = "$(Build.SourcesDirectory)/s/README.md"
                   $outPath = "$(Build.ArtifactStagingDirectory)/$zipName"
                   Compress-Archive -Path $exePath, $readmePath -DestinationPath $outPath
@@ -281,9 +278,6 @@ extends:
                     '[source.devdiv-deepprompt]',
                     'registry = "sparse+https://pkgs.dev.azure.com/devdiv/_packaging/DeepPrompt/Cargo/index/"',
                     '',
-                    '[target.x86_64-pc-windows-msvc]',
-                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE /CETCOMPAT"]',
-                    '',
                     '[target.aarch64-pc-windows-msvc]',
                     'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE"]'
                   )
@@ -307,7 +301,7 @@ extends:
               - script: |
                   dir target\aarch64-pc-windows-msvc\release\tgrep.exe
                 displayName: 'Verify tgrep.exe (arm64) exists'
-                workingDirectory: $(Build.SourcesDirectory)\s
+                workingDirectory: $(Build.SourcesDirectory)
 
               - task: onebranch.pipeline.signing@1
                 displayName: 'Sign tgrep.exe (arm64)'
@@ -315,12 +309,12 @@ extends:
                   command: "sign"
                   signing_profile: "external_distribution"
                   files_to_sign: "tgrep.exe"
-                  search_root: "$(Build.SourcesDirectory)/s/target/aarch64-pc-windows-msvc/release"
+                  search_root: "$(Build.SourcesDirectory)/target/aarch64-pc-windows-msvc/release"
 
               - powershell: |
                   $tag = "$(TGREP_TAG)"
                   $zipName = "tgrep-$tag-aarch64-pc-windows-msvc.zip"
-                  $exePath = "$(Build.SourcesDirectory)/s/target/aarch64-pc-windows-msvc/release/tgrep.exe"
+                  $exePath = "$(Build.SourcesDirectory)/target/aarch64-pc-windows-msvc/release/tgrep.exe"
                   $readmePath = "$(Build.SourcesDirectory)/s/README.md"
                   $outPath = "$(Build.ArtifactStagingDirectory)/$zipName"
                   Compress-Archive -Path $exePath, $readmePath -DestinationPath $outPath
