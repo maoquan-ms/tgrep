@@ -278,9 +278,6 @@ extends:
                     '[source.devdiv-deepprompt]',
                     'registry = "sparse+https://pkgs.dev.azure.com/devdiv/_packaging/DeepPrompt/Cargo/index/"',
                     '',
-                    '[target.x86_64-pc-windows-msvc]',
-                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE /CETCOMPAT"]',
-                    '',
                     '[target.aarch64-pc-windows-msvc]',
                     'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE"]'
                   )
