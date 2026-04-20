@@ -146,8 +146,8 @@ extends:
                     '[source.devdiv-deepprompt]',
                     'registry = "sparse+https://pkgs.dev.azure.com/devdiv/_packaging/DeepPrompt/Cargo/index/"',
                     '',
-                    '[target.aarch64-pc-windows-msvc]',
-                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE"]'
+                    '[target.x86_64-pc-windows-msvc]',
+                    'rustflags = ["-Ccontrol-flow-guard", "-Ctarget-feature=+crt-static", "-Clink-args=/DYNAMICBASE /CETCOMPAT"]'
                   )
                   $configPath = "$dstDir\config.toml"
                   $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
