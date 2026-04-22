@@ -534,11 +534,12 @@ fn handle_search(
     // Parallel regex matching across candidate files
     let t_search = Instant::now();
     let matches: Vec<serde_json::Value> = if has_context {
-        // Context mode: sequential (needs ordered output)
-        candidate_contents
-            .iter()
-            .flat_map(|(rel_path, content)| search_file_matches(rel_path, content, &re, &opts))
-            .collect()
+        // Context mode: parallel search, order preserved by indexed par_iter
+        let per_file: Vec<Vec<serde_json::Value>> = candidate_contents
+            .par_iter()
+            .map(|(rel_path, content)| search_file_matches(rel_path, content, &re, &opts))
+            .collect();
+        per_file.into_iter().flatten().collect()
     } else {
         // No context: parallel search
         candidate_contents
